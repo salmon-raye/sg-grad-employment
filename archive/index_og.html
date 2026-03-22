@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SG Graduate Employment Explorer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & Base ─────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0d0f14;
+    --surface:   #13161e;
+    --surface2:  #1a1e2a;
+    --border:    #242836;
+    --border2:   #2e3346;
+    --text:      #e8eaf0;
+    --text-dim:  #dedede;
+    --text-faint:#81838a;
+
+    --accent1:   #4fffb0;   /* mint green  — primary highlight */
+    --accent2:   #ff6b6b;   /* coral       — comparison colour base */
+    --accent3:   #ffd93d;   /* amber       — tertiary */
+    --accent4:   #6bcbff;   /* sky blue    — quaternary */
+    --accent5:   #c77dff;   /* violet      — quinary */
+
+    /* chart palette — one per selected course */
+    --c0: #4fffb0; --c1: #ff6b6b; --c2: #ffd93d;
+    --c3: #6bcbff; --c4: #c77dff; --c5: #ff9f43;
+
+    --radius:    10px;
+    --radius-lg: 16px;
+    --shadow:    0 4px 24px rgba(0,0,0,.45);
+    --transition: 180ms ease;
+  }
+
+  html { font-size: 15px; scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 400;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── Grain overlay ─────────────────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+    opacity: .6;
+  }
+
+  /* ── Layout ────────────────────────────────────────────────── */
+  .page { max-width: 1360px; margin: 0 auto; padding: 0 28px 80px; }
+
+  /* ── Header ────────────────────────────────────────────────── */
+  header {
+    padding: 48px 0 36px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 36px;
+  }
+
+  .header-left h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    line-height: 1.1;
+    color: var(--text);
+    letter-spacing: -.02em;
+  }
+
+  .header-left h1 em {
+    font-style: italic;
+    color: var(--accent1);
+  }
+
+  .header-left p {
+    margin-top: 8px;
+    color: var(--text-dim);
+    font-size: .9rem;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: .03em;
+  }
+
+  .header-badge {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 100px;
+    padding: 6px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: .75rem;
+    color: var(--accent1);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .header-badge::before {
+    content: '';
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent1);
+    box-shadow: 0 0 8px var(--accent1);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50%      { opacity: .3; }
+  }
+
+  /* ── Filter Panel ──────────────────────────────────────────── */
+  .filter-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 28px;
+    margin-bottom: 28px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 16px;
+    align-items: end;
+  }
+
+  .filter-group { display: flex; flex-direction: column; gap: 7px; }
+
+  .filter-group label {
+    font-family: 'DM Mono', monospace;
+    font-size: .7rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .filter-group select {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: .9rem;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a8099' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+    transition: border-color var(--transition), box-shadow var(--transition);
+    width: 100%;
+  }
+
+  .filter-group select:focus {
+    outline: none;
+    border-color: var(--accent1);
+    box-shadow: 0 0 0 3px rgba(79,255,176,.12);
+  }
+
+  .filter-group select:disabled { opacity: .4; cursor: not-allowed; }
+
+  .btn-add {
+    background: var(--accent1);
+    color: #0d0f14;
+    border: none;
+    border-radius: var(--radius);
+    padding: 10px 22px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    font-size: .9rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity var(--transition), transform var(--transition);
+    height: 42px;
+  }
+
+  .btn-add:hover { opacity: .88; transform: translateY(-1px); }
+  .btn-add:active { transform: translateY(0); }
+  .btn-add:disabled { opacity: .3; cursor: not-allowed; transform: none; }
+
+  /* ── Selected courses chips ────────────────────────────────── */
+  .selected-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 28px;
+    min-height: 0;
+    transition: margin var(--transition);
+  }
+
+  .selected-bar:empty { margin-bottom: 0; }
+
+  .course-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    border-radius: 100px;
+    border: 1.5px solid;
+    font-size: .82rem;
+    font-weight: 500;
+    animation: chipIn .2s ease;
+    cursor: default;
+  }
+
+  @keyframes chipIn {
+    from { opacity: 0; transform: scale(.88); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  .course-chip .chip-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .course-chip .chip-label { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip-uni { font-size: .72rem; opacity: .65; }
+
+  .course-chip .chip-remove {
+    background: none; border: none;
+    color: inherit; opacity: .5;
+    cursor: pointer; padding: 0;
+    font-size: 1.1rem; line-height: 1;
+    transition: opacity var(--transition);
+  }
+  .course-chip .chip-remove:hover { opacity: 1; }
+
+  /* ── Empty state ───────────────────────────────────────────── */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 80px 24px;
+    text-align: center;
+    color: var(--text-dim);
+  }
+
+  .empty-state .empty-icon {
+    font-size: 3.5rem;
+    opacity: .25;
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%,100% { transform: translateY(0); }
+    50%     { transform: translateY(-10px); }
+  }
+
+  .empty-state h3 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.4rem;
+    color: var(--text);
+    opacity: .5;
+  }
+
+  .empty-state p { font-size: .9rem; opacity: .6; max-width: 380px; }
+
+  /* ── Stats Cards Grid ──────────────────────────────────────── */
+  #stats-section { margin-bottom: 40px; }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 22px 18px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color var(--transition), transform var(--transition);
+    animation: cardIn .25s ease;
+  }
+
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+
+  .stat-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+
+  .stat-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 14px;
+    gap: 10px;
+  }
+
+  .stat-card-title { font-size: .82rem; color: var(--text-dim); line-height: 1.4; }
+
+  .stat-card-uni {
+    font-family: 'DM Mono', monospace;
+    font-size: .68rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 100px;
+    border: 1px solid;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .stat-card-values {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 20px;
+    margin-bottom: 14px;
+  }
+
+  .stat-item label {
+    display: block;
+    font-family: 'DM Mono', monospace;
+    font-size: .67rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--text-faint);
+    margin-bottom: 3px;
+  }
+
+  .stat-item .stat-value {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.55rem;
+    line-height: 1;
+    color: var(--text);
+  }
+
+  .stat-item .stat-value.null-val {
+    font-family: 'DM Mono', monospace;
+    font-size: .85rem;
+    color: var(--text-faint);
+  }
+
+  .stat-item .stat-sub {
+    font-size: .75rem;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .stat-change {
+    font-family: 'DM Mono', monospace;
+    font-size: .72rem;
+    padding: 2px 8px;
+    border-radius: 100px;
+    display: inline-block;
+  }
+
+  .stat-change.up   { background: rgba(79,255,176,.1); color: var(--accent1); }
+  .stat-change.down { background: rgba(255,107,107,.1); color: var(--accent2); }
+
+  .stat-card-year-tag {
+    position: absolute;
+    bottom: 16px; right: 18px;
+    font-family: 'DM Mono', monospace;
+    font-size: .68rem;
+    color: var(--text-faint);
+  }
+
+  /* ── Chart Section ─────────────────────────────────────────── */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  .chart-full { grid-column: 1 / -1; }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 24px 20px;
+    animation: cardIn .3s ease;
+  }
+
+  .chart-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .chart-card-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.1rem;
+    color: var(--text);
+  }
+
+  .chart-card-sub {
+    font-size: .78rem;
+    color: var(--text-dim);
+    margin-bottom: 18px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .chart-wrap {
+    position: relative;
+    height: 280px;
+  }
+
+  /* ── Legend ────────────────────────────────────────────────── */
+  .chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: .78rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: color var(--transition);
+    max-width: 220px;
+  }
+
+  .legend-item:hover { color: var(--text); }
+
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .legend-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── Scrollbar ─────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 100px; }
+
+  /* ── Responsive ────────────────────────────────────────────── */
+  @media (max-width: 1000px) {
+    .charts-grid { grid-template-columns: 1fr; }
+    .chart-full  { grid-column: 1; }
+  }
+
+  @media (max-width: 760px) {
+    .filter-panel { grid-template-columns: 1fr; }
+    header { flex-direction: column; align-items: flex-start; }
+    .stat-card-values { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── Loading spinner ───────────────────────────────────────── */
+  .spinner {
+    width: 32px; height: 32px;
+    border: 2.5px solid var(--border2);
+    border-top-color: var(--accent1);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    margin: 40px auto;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Tooltip override ──────────────────────────────────────── */
+  .chartjs-tooltip-custom {
+    background: var(--surface2) !important;
+    border: 1px solid var(--border2) !important;
+    border-radius: var(--radius) !important;
+    padding: 10px 14px !important;
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: .82rem !important;
+    color: var(--text) !important;
+    box-shadow: var(--shadow) !important;
+    pointer-events: none;
+  }
+
+  /* section divider */
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: .7rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 14px;
+    padding-left: 2px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ── Header ─────────────────────────────────────────────── -->
+  <header>
+    <div class="header-left">
+      <h1><em>SG Graduate Employment Explorer</em></h1>
+      <p id="data-range-label">Loading dataset…</p>
+    </div>
+    <div class="header-badge" id="course-count-badge">— courses</div>
+  </header>
+
+  <!-- ── Filter Panel ───────────────────────────────────────── -->
+  <div class="filter-panel">
+    <div class="filter-group">
+      <label>University</label>
+      <select id="sel-uni"><option value="">Select university…</option></select>
+    </div>
+    <div class="filter-group">
+      <label>School / Faculty</label>
+      <select id="sel-school" disabled><option value="">Select school…</option></select>
+    </div>
+    <div class="filter-group">
+      <label>Degree</label>
+      <select id="sel-degree" disabled><option value="">Select degree…</option></select>
+    </div>
+    <button class="btn-add" id="btn-add" disabled>+ Add</button>
+  </div>
+
+  <!-- ── Selected chips ─────────────────────────────────────── -->
+  <div class="selected-bar" id="selected-bar"></div>
+
+  <!-- ── Main content ───────────────────────────────────────── -->
+  <div id="main-content">
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">◎</div>
+      <h3>No courses selected yet</h3>
+      <p>Use the filters above to add one or more degree programmes. Select up to 6 to compare side by side.</p>
+    </div>
+
+    <!-- Stats cards -->
+    <div id="stats-section" style="display:none">
+      <div class="section-label" id="stats-year-label">Latest year stats</div>
+      <div class="stats-grid" id="stats-grid"></div>
+    </div>
+
+    <!-- Charts -->
+    <div id="charts-section" style="display:none; margin-top:32px;">
+      <div class="section-label">Trends over time</div>
+
+      <!-- Chart 1: Gross Monthly Median -->
+      <div class="charts-grid">
+        <div class="chart-card chart-full">
+          <div class="chart-card-header">
+            <div class="chart-card-title">Gross Monthly Median Salary</div>
+          </div>
+          <div class="chart-card-sub">SGD / month — median across all graduates surveyed</div>
+          <div class="chart-wrap"><canvas id="chart-median"></canvas></div>
+          <div class="chart-legend" id="legend-median"></div>
+        </div>
+
+        <!-- Chart 2: Percentile band -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-card-title">Salary Band</div>
+          </div>
+          <div class="chart-card-sub">25th → 75th percentile range (shaded) + median line</div>
+          <div class="chart-wrap"><canvas id="chart-band"></canvas></div>
+          <div class="chart-legend" id="legend-band"></div>
+        </div>
+
+        <!-- Chart 3: Employment rate -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-card-title">Full-Time Permanent Employment Rate</div>
+          </div>
+          <div class="chart-card-sub">% of graduates in full-time permanent roles</div>
+          <div class="chart-wrap"><canvas id="chart-emp"></canvas></div>
+          <div class="chart-legend" id="legend-emp"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   CONFIG
+════════════════════════════════════════════════════════════════ */
+const DATA_BASE   = './data';
+const COLORS      = ['#4fffb0','#ff6b6b','#ffd93d','#6bcbff','#c77dff','#ff9f43'];
+const MAX_COURSES = 6;
+
+/* ════════════════════════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════════════════════════ */
+let metadata     = null;   // full metadata.json
+let selected     = [];     // [{slug, university, school, degree, data, color}]
+let chartMedian  = null;
+let chartBand    = null;
+let chartEmp     = null;
+
+/* ════════════════════════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════════════════════════ */
+async function init() {
+  try {
+    const res = await fetch(`${DATA_BASE}/metadata.json`);
+    if (!res.ok) throw new Error('metadata.json not found');
+    metadata = await res.json();
+    bootstrapUI();
+  } catch(e) {
+    document.getElementById('data-range-label').textContent = 'Error loading data — ' + e.message;
+    console.error(e);
+  }
+}
+
+function bootstrapUI() {
+  const years = metadata.years;
+  document.getElementById('data-range-label').textContent =
+    `${metadata.total_courses} degree programmes · ${years[0]}–${years[years.length-1]}`;
+  document.getElementById('course-count-badge').textContent =
+    `${metadata.total_courses} courses`;
+
+  populateUniSelect();
+
+  document.getElementById('sel-uni').addEventListener('change', onUniChange);
+  document.getElementById('sel-school').addEventListener('change', onSchoolChange);
+  document.getElementById('sel-degree').addEventListener('change', onDegreeChange);
+  document.getElementById('btn-add').addEventListener('click', onAddCourse);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   FILTER CASCADES
+════════════════════════════════════════════════════════════════ */
+function populateUniSelect() {
+  const sel = document.getElementById('sel-uni');
+  sel.innerHTML = '<option value="">Select university…</option>';
+  metadata.universities.forEach(u => {
+    const o = document.createElement('option');
+    o.value = u; o.textContent = uniShort(u);
+    sel.appendChild(o);
+  });
+}
+
+function onUniChange() {
+  const uni = document.getElementById('sel-uni').value;
+  const schoolSel  = document.getElementById('sel-school');
+  const degreeSel  = document.getElementById('sel-degree');
+  degreeSel.innerHTML = '<option value="">Select degree…</option>';
+  degreeSel.disabled  = true;
+  document.getElementById('btn-add').disabled = true;
+
+  if (!uni) {
+    schoolSel.innerHTML = '<option value="">Select school…</option>';
+    schoolSel.disabled  = true;
+    return;
+  }
+
+  const schools = Object.keys(metadata.tree[uni] || {});
+  schoolSel.innerHTML = '<option value="">All schools</option>';
+  schools.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s; o.textContent = s === 'Other' ? 'Other / Unknown' : s;
+    schoolSel.appendChild(o);
+  });
+  schoolSel.disabled = false;
+  populateDegrees(uni, null);
+}
+
+function onSchoolChange() {
+  const uni    = document.getElementById('sel-uni').value;
+  const school = document.getElementById('sel-school').value || null;
+  populateDegrees(uni, school);
+}
+
+function populateDegrees(uni, school) {
+  const degreeSel = document.getElementById('sel-degree');
+  degreeSel.innerHTML = '<option value="">Select degree…</option>';
+  document.getElementById('btn-add').disabled = true;
+
+  let degreeMap = {};
+  if (school && metadata.tree[uni]?.[school]) {
+    degreeMap = metadata.tree[uni][school];
+  } else {
+    // merge all schools
+    Object.values(metadata.tree[uni] || {}).forEach(m => Object.assign(degreeMap, m));
+  }
+
+  const sorted = Object.entries(degreeMap).sort(([a],[b]) => a.localeCompare(b));
+  sorted.forEach(([degree, slug]) => {
+    const o = document.createElement('option');
+    o.value = slug; o.textContent = degree;
+    // grey out already-selected
+    if (selected.some(s => s.slug === slug)) {
+      o.disabled = true;
+      o.textContent += ' ✓';
+    }
+    degreeSel.appendChild(o);
+  });
+  degreeSel.disabled = false;
+}
+
+function onDegreeChange() {
+  const slug = document.getElementById('sel-degree').value;
+  const btn  = document.getElementById('btn-add');
+  btn.disabled = !slug || selected.length >= MAX_COURSES || selected.some(s => s.slug === slug);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ADD COURSE
+════════════════════════════════════════════════════════════════ */
+async function onAddCourse() {
+  const slug = document.getElementById('sel-degree').value;
+  if (!slug || selected.length >= MAX_COURSES) return;
+  if (selected.some(s => s.slug === slug)) return;
+
+  document.getElementById('btn-add').disabled = true;
+
+  try {
+    const res  = await fetch(`${DATA_BASE}/courses/${slug}.json`);
+    if (!res.ok) throw new Error('Course data not found');
+    const data = await res.json();
+
+    const color = COLORS[selected.length % COLORS.length];
+    selected.push({ slug, color, ...data });
+
+    renderChips();
+    renderStats();
+    renderCharts();
+    updateAddButton();
+    onDegreeChange(); // re-evaluate button state
+  } catch(e) {
+    console.error('Failed to load course:', e);
+  }
+}
+
+function removeCourse(slug) {
+  selected = selected.filter(s => s.slug !== slug);
+  // recolour remaining
+  selected.forEach((s, i) => s.color = COLORS[i % COLORS.length]);
+  renderChips();
+  renderStats();
+  renderCharts();
+  updateAddButton();
+  // refresh degree dropdown to un-grey the removed course
+  const uni    = document.getElementById('sel-uni').value;
+  const school = document.getElementById('sel-school').value || null;
+  if (uni) populateDegrees(uni, school);
+}
+
+function updateAddButton() {
+  const slug = document.getElementById('sel-degree').value;
+  document.getElementById('btn-add').disabled =
+    !slug || selected.length >= MAX_COURSES || selected.some(s => s.slug === slug);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CHIPS
+════════════════════════════════════════════════════════════════ */
+function renderChips() {
+  const bar = document.getElementById('selected-bar');
+  bar.innerHTML = '';
+  selected.forEach(s => {
+    const chip = document.createElement('div');
+    chip.className = 'course-chip';
+    chip.style.borderColor = s.color + '55';
+    chip.style.background  = s.color + '0d';
+    chip.style.color       = s.color;
+    chip.innerHTML = `
+      <span class="chip-dot" style="background:${s.color}"></span>
+      <span class="chip-label" title="${s.degree}">
+        <span class="chip-uni">${uniShort(s.university)} · </span>${s.degree}
+      </span>
+      <button class="chip-remove" title="Remove" onclick="removeCourse('${s.slug}')">×</button>
+    `;
+    bar.appendChild(chip);
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════
+   STATS CARDS
+════════════════════════════════════════════════════════════════ */
+function renderStats() {
+  const section = document.getElementById('stats-section');
+  const empty   = document.getElementById('empty-state');
+  const grid    = document.getElementById('stats-grid');
+
+  if (selected.length === 0) {
+    section.style.display = 'none';
+    empty.style.display   = 'flex';
+    document.getElementById('charts-section').style.display = 'none';
+    return;
+  }
+
+  empty.style.display   = 'none';
+  section.style.display = 'block';
+  document.getElementById('charts-section').style.display = 'block';
+
+  // Find the most common latest year
+  const latestYear = selected.reduce((max, s) => Math.max(max, s.latest_year), 0);
+  document.getElementById('stats-year-label').textContent =
+    `Latest available stats · ${latestYear}`;
+
+  grid.innerHTML = '';
+  selected.forEach(s => {
+    const l     = s.latest || {};
+    const stats = s.stats || {};
+    const card  = document.createElement('div');
+    card.className = 'stat-card';
+    card.style.setProperty('--card-color', s.color);
+
+    // top bar
+    card.style.cssText += ``;
+    const topBar = document.createElement('div');
+    topBar.style.cssText = `position:absolute;top:0;left:0;right:0;height:3px;background:${s.color};border-radius:var(--radius-lg) var(--radius-lg) 0 0`;
+    card.appendChild(topBar);
+
+    const salaryMedian = fmt(l.gross_monthly_median, '$');
+    const empRate      = fmt(l.employment_rate_ft_perm, '', '%');
+    const salaryMean   = fmt(l.gross_monthly_mean, '$');
+    const p25          = fmt(l.gross_mthly_25_percentile, '$');
+    const p75          = fmt(l.gross_mthly_75_percentile, '$');
+
+    let changeHtml = '';
+    if (stats.salary_change_pct != null) {
+      const dir = stats.salary_change_pct >= 0 ? 'up' : 'down';
+      const sym = stats.salary_change_pct >= 0 ? '↑' : '↓';
+      changeHtml = `<span class="stat-change ${dir}">${sym} ${Math.abs(stats.salary_change_pct)}% since ${s.years_available[0]}</span>`;
+    }
+
+    card.innerHTML += `
+      <div class="stat-card-header">
+        <div class="stat-card-title">${s.degree}</div>
+        <div class="stat-card-uni" style="border-color:${s.color}44;color:${s.color}">${uniShort(s.university)}</div>
+      </div>
+      <div class="stat-card-values">
+        <div class="stat-item">
+          <label>Gross Median</label>
+          <div class="stat-value ${l.gross_monthly_median == null ? 'null-val' : ''}">${salaryMedian}</div>
+          <div class="stat-sub">/ month</div>
+        </div>
+        <div class="stat-item">
+          <label>FT Perm Rate</label>
+          <div class="stat-value ${l.employment_rate_ft_perm == null ? 'null-val' : ''}">${empRate}</div>
+          <div class="stat-sub">employed</div>
+        </div>
+        <div class="stat-item">
+          <label>Gross Mean</label>
+          <div class="stat-value ${l.gross_monthly_mean == null ? 'null-val' : ''}" style="font-size:1.15rem">${salaryMean}</div>
+        </div>
+        <div class="stat-item">
+          <label>25th–75th</label>
+          <div class="stat-value" style="font-size:1rem;color:var(--text-dim)">${p25} – ${p75}</div>
+        </div>
+      </div>
+      ${changeHtml}
+      <div class="stat-card-year-tag">${l.year ?? '—'}</div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CHARTS
+════════════════════════════════════════════════════════════════ */
+
+/* Shared Chart.js defaults */
+const CHART_DEFAULTS = {
+  responsive: true,
+  maintainAspectRatio: false,
+  interaction: { mode: 'index', intersect: false },
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: '#1a1e2a',
+      borderColor: '#2e3346',
+      borderWidth: 1,
+      titleColor: '#e8eaf0',
+      bodyColor: '#7a8099',
+      padding: 12,
+      titleFont: { family: 'DM Sans', size: 13, weight: '600' },
+      bodyFont: { family: 'DM Mono', size: 11 },
+      callbacks: {}
+    }
+  },
+  scales: {
+    x: {
+      grid:  { color: '#1d2130', drawBorder: false },
+      ticks: { color: '#3d4358', font: { family: 'DM Mono', size: 10 } },
+    },
+    y: {
+      grid:  { color: '#1d2130', drawBorder: false },
+      ticks: { color: '#3d4358', font: { family: 'DM Mono', size: 10 } },
+    }
+  }
+};
+
+function deepMerge(target, source) {
+  const out = Object.assign({}, target);
+  for (const k in source) {
+    if (source[k] && typeof source[k] === 'object' && !Array.isArray(source[k])) {
+      out[k] = deepMerge(target[k] || {}, source[k]);
+    } else {
+      out[k] = source[k];
+    }
+  }
+  return out;
+}
+
+function getUnionYears() {
+  const all = new Set();
+  selected.forEach(s => s.years_available.forEach(y => all.add(y)));
+  return Array.from(all).sort((a,b) => a-b);
+}
+
+function getSeriesForYear(courseData, year, col) {
+  const row = courseData.find(r => r.year === year);
+  return row ? row[col] : null;
+}
+
+function renderCharts() {
+  if (selected.length === 0) return;
+  const years = getUnionYears();
+
+  buildMedianChart(years);
+  buildBandChart(years);
+  buildEmpChart(years);
+}
+
+/* ── Chart 1: Gross Monthly Median ── */
+function buildMedianChart(years) {
+  const datasets = selected.map(s => ({
+    label: `${uniShort(s.university)} · ${s.degree}`,
+    data:  years.map(y => getSeriesForYear(s.data, y, 'gross_monthly_median')),
+    borderColor: s.color,
+    backgroundColor: s.color + '18',
+    pointBackgroundColor: s.color,
+    pointRadius: 4,
+    pointHoverRadius: 7,
+    borderWidth: 2.5,
+    tension: .35,
+    spanGaps: true,
+  }));
+
+  const cfg = deepMerge(CHART_DEFAULTS, {
+    plugins: {
+      tooltip: {
+        callbacks: {
+          title: items => `Year ${items[0].label}`,
+          label: item => {
+            const v = item.raw;
+            return v != null ? `  ${item.dataset.label}: $${v.toLocaleString()}` : `  ${item.dataset.label}: N/A`;
+          }
+        }
+      }
+    },
+    scales: { y: { ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'k' } } }
+  });
+
+  if (chartMedian) chartMedian.destroy();
+  chartMedian = new Chart(document.getElementById('chart-median'), {
+    type: 'line', data: { labels: years, datasets }, options: cfg
+  });
+  renderLegend('legend-median', selected);
+}
+
+/* ── Chart 2: Percentile band ── */
+function buildBandChart(years) {
+  const datasets = [];
+
+  selected.forEach(s => {
+    const p25    = years.map(y => getSeriesForYear(s.data, y, 'gross_mthly_25_percentile'));
+    const median = years.map(y => getSeriesForYear(s.data, y, 'gross_monthly_median'));
+    const p75    = years.map(y => getSeriesForYear(s.data, y, 'gross_mthly_75_percentile'));
+
+    const shortLabel = `${uniShort(s.university)} · ${s.degree}`;
+
+    // Lower bound (invisible, used as fill baseline)
+    datasets.push({
+      label: `${shortLabel} (25th)`,
+      data: p25,
+      borderColor: 'transparent',
+      backgroundColor: s.color + '20',
+      pointRadius: 0,
+      borderWidth: 0,
+      tension: .35,
+      fill: '+1',   // fill to next dataset (75th)
+      spanGaps: true,
+      _isBand: true,
+    });
+
+    // Upper bound
+    datasets.push({
+      label: `${shortLabel} (75th)`,
+      data: p75,
+      borderColor: s.color + '40',
+      backgroundColor: s.color + '20',
+      pointRadius: 0,
+      borderWidth: 1,
+      borderDash: [4,3],
+      tension: .35,
+      fill: false,
+      spanGaps: true,
+      _isBand: true,
+    });
+
+    // Median line
+    datasets.push({
+      label: shortLabel,
+      data: median,
+      borderColor: s.color,
+      backgroundColor: s.color,
+      pointBackgroundColor: s.color,
+      pointRadius: 3,
+      pointHoverRadius: 6,
+      borderWidth: 2.5,
+      tension: .35,
+      fill: false,
+      spanGaps: true,
+    });
+  });
+
+  const cfg = deepMerge(CHART_DEFAULTS, {
+    plugins: {
+      tooltip: {
+        filter: item => !item.dataset._isBand,
+        callbacks: {
+          title: items => `Year ${items[0].label}`,
+          label: item => {
+            const v   = item.raw;
+            const idx = selected.findIndex(s =>
+              `${uniShort(s.university)} · ${s.degree}` === item.dataset.label
+            );
+            if (idx === -1 || v == null) return null;
+            const s    = selected[idx];
+            const year = years[item.dataIndex];
+            const p25  = getSeriesForYear(s.data, year, 'gross_mthly_25_percentile');
+            const p75  = getSeriesForYear(s.data, year, 'gross_mthly_75_percentile');
+            const band = (p25 != null && p75 != null)
+              ? `  Band: $${p25.toLocaleString()}–$${p75.toLocaleString()}`
+              : '';
+            return [
+              `  ${item.dataset.label}: $${v.toLocaleString()}`,
+              band
+            ].filter(Boolean);
+          }
+        }
+      }
+    },
+    scales: { y: { ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'k' } } }
+  });
+
+  if (chartBand) chartBand.destroy();
+  const years2 = getUnionYears();
+  chartBand = new Chart(document.getElementById('chart-band'), {
+    type: 'line', data: { labels: years2, datasets }, options: cfg
+  });
+  renderLegend('legend-band', selected);
+}
+
+/* ── Chart 3: Employment rate ── */
+function buildEmpChart(years) {
+  const datasets = selected.map(s => ({
+    label: `${uniShort(s.university)} · ${s.degree}`,
+    data:  years.map(y => getSeriesForYear(s.data, y, 'employment_rate_ft_perm')),
+    borderColor: s.color,
+    backgroundColor: s.color + '18',
+    pointBackgroundColor: s.color,
+    pointRadius: 4,
+    pointHoverRadius: 7,
+    borderWidth: 2.5,
+    tension: .35,
+    spanGaps: true,
+    fill: false,
+  }));
+
+  const cfg = deepMerge(CHART_DEFAULTS, {
+    plugins: {
+      tooltip: {
+        callbacks: {
+          title: items => `Year ${items[0].label}`,
+          label: item => {
+            const v = item.raw;
+            return v != null
+              ? `  ${item.dataset.label}: ${v.toFixed(1)}%`
+              : `  ${item.dataset.label}: N/A`;
+          }
+        }
+      }
+    },
+    scales: {
+      y: {
+        min: 0, max: 100,
+        ticks: { callback: v => v + '%' }
+      }
+    }
+  });
+
+  if (chartEmp) chartEmp.destroy();
+  chartEmp = new Chart(document.getElementById('chart-emp'), {
+    type: 'line', data: { labels: years, datasets }, options: cfg
+  });
+  renderLegend('legend-emp', selected);
+}
+
+/* ── Legend ── */
+function renderLegend(containerId, courses) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  courses.forEach(s => {
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.innerHTML = `
+      <span class="legend-dot" style="background:${s.color}"></span>
+      <span class="legend-label" title="${s.university} · ${s.degree}">
+        ${uniShort(s.university)} · ${s.degree}
+      </span>
+    `;
+    el.appendChild(item);
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════
+   UTILITIES
+════════════════════════════════════════════════════════════════ */
+function uniShort(uni) {
+  const map = {
+    'Nanyang Technological University':           'NTU',
+    'National University of Singapore':           'NUS',
+    'Singapore Management University':            'SMU',
+    'Singapore University of Technology and Design': 'SUTD',
+    'Singapore Institute of Technology':          'SIT',
+    'Singapore University of Social Sciences':    'SUSS',
+  };
+  return map[uni] || uni;
+}
+
+function fmt(val, prefix = '', suffix = '') {
+  if (val == null) return '<span class="null-val">N/A</span>';
+  const n = typeof val === 'number' ? val : parseFloat(val);
+  if (isNaN(n)) return '<span class="null-val">N/A</span>';
+  return prefix + n.toLocaleString('en-SG', { maximumFractionDigits: 1 }) + suffix;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   BOOT
+════════════════════════════════════════════════════════════════ */
+init();
+</script>
+</body>
+</html>
