@@ -4,7 +4,7 @@ An interactive dashboard for exploring graduate employment outcomes across Singa
 
 Built as a fully static site — no server, no database. All data is pre-processed into JSON at build time and served via GitHub Pages.
 
-**[View live site →](https://salmon-raye.github.io/sg_grad_employment)**
+**[View live site →](https://salmon-raye.github.io/sg-grad-employment)**
 
 ---
 
