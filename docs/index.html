@@ -407,7 +407,7 @@ async function init() {
 function bootstrapUI() {
   const years = metadata.years;
   document.getElementById('data-range-label').textContent =
-    `${metadata.total_courses} degree programmes · ${years[0]}–${years[years.length-1]}`;
+    `${years[0]}–${years[years.length-1]}`;
   document.getElementById('course-count-badge').textContent = `${metadata.total_courses} courses`;
 
   populateUniSelect();
